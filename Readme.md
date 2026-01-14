@@ -134,3 +134,4 @@ FlashVector demonstrates **real-world backend engineering skills**, including:
 MIT License
 
 
+> This project focuses on systems design and correctness. Performance benchmarking and networking layers are planned extensions.
