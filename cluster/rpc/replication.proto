@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package replication;
+
+option go_package = "cluster/rpc;rpc";
+
+
+message WALRecord{
+    uint32 op = 1;
+    string key = 2;
+    bytes value = 3;
+}
+
+message ReplicateRequest{
+    WALRecord record = 1;
+}
+
+message ReplicateResponse{
+    bool success = 1;
+}
+
+message HeartbeatRequest{}
+
+message HeartbeatResponse{}
+
+service ReplicationService{
+    rpc Replicate(ReplicateRequest) returns (ReplicateResponse);
+
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
