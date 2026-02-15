@@ -128,6 +128,25 @@ FlashVector demonstrates **real-world backend engineering skills**, including:
 * clean shutdown semantics
 * configuration-driven deployment
 
+🚀 Performance Benchmarks
+
+Benchmarks were executed on:
+
+- CPU: Intel i5-1155G7 (11th Gen)
+- OS: Windows (amd64)
+- Vector Dimension: 384 (float32, ~1.5 KB per vector)
+
+| Operation | Avg Latency | Throughput (approx.) | Allocations | Notes |
+|------------|-------------|----------------------|-------------|-------|
+| **Read (Get)** | **21 ns/op** | ~47,000,000 ops/sec | 0 B/op, 0 allocs | Pure in-memory lookup |
+| **Write (Set)** | **0.42 ms/op** | ~2,300 ops/sec | ~559 KB/op, 6 allocs | WAL logging + vector indexing |
+| **Delete** | **0.25 ms/op** | ~4,000 ops/sec | ~244 KB/op, 2 allocs | Safe removal from index |
+
+Benchmark Command
+
+```bash
+go test ./storage -bench=. -benchmem
+
 
 📜 License
 

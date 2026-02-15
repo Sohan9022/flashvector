@@ -1,54 +1,68 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"testing"
 )
 
-func TestSetAndGet(t *testing.T){
-	store,_ := NewStore(context.Background(), nil)
+// Helper to create 8-byte vectors (Matches your NewStore configuration)
+func mockDataTest(content string) []byte {
+	out := make([]byte, 384)
+	copy(out, []byte(content))
+	return out
+}
 
-	if err := store.Set("key1", []byte("val1")); err != nil {
+func TestSetAndGet(t *testing.T) {
+	ctx := context.Background()
+	store, _ := NewStore(ctx, nil)
+
+	// FIX: Use mockDataTest instead of raw strings
+	val := mockDataTest("val1")
+	
+	if err := store.Set("key1", val); err != nil {
 		t.Fatal(err)
 	}
 
-	val,ok := store.Get("key1")
+	retrieved, ok := store.Get("key1")
 
-	if !ok{
+	if !ok {
 		t.Fatalf("expected key to exist")
 	}
-	if string(val) != "val1"{
-		t.Fatalf("expected value 'val1', got '%s'",string(val))
+	if !bytes.Equal(retrieved, val) {
+		t.Fatalf("expected value matches")
 	}
-	
 }
 
+func TestDelete(t *testing.T) {
+	ctx := context.Background()
+	store, _ := NewStore(ctx, nil)
 
-func TestDelete(t *testing.T){
-	store,_ := NewStore(context.Background(), nil)
-	
-	if err := store.Set("key2", []byte("val2")); err != nil {
+	// FIX: Use mockDataTest
+	if err := store.Set("key2", mockDataTest("val2")); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Delete("key2"); err != nil {
 		t.Fatal(err)
 	}
-	_,ok := store.Get("key2")
+	_, ok := store.Get("key2")
 
-	if ok{
+	if ok {
 		t.Fatalf("expected key to be deleted")
 	}
 }
 
-func TestConcurrentAccess(t *testing.T){
-	store,_ := NewStore(context.Background(), nil)
+func TestConcurrentAccess(t *testing.T) {
+	ctx := context.Background()
+	store, _ := NewStore(ctx, nil)
 
 	done := make(chan bool)
 
-	for i := 0;i<100;i++{
-		go func(i int){
+	for i := 0; i < 100; i++ {
+		go func(i int) {
 			key := "key"
-			if err := store.Set(key, []byte("val")); err != nil {
+			// FIX: Use mockDataTest
+			if err := store.Set(key, mockDataTest("val")); err != nil {
 				t.Error(err)
 			}
 
@@ -61,8 +75,7 @@ func TestConcurrentAccess(t *testing.T){
 		}(i)
 	}
 
-	for i:=0 ;i<100;i++{
-		<- done
+	for i := 0; i < 100; i++ {
+		<-done
 	}
-
 }
