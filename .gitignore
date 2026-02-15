@@ -16,3 +16,6 @@ wal/
 # IDE
 .vscode/
 .idea/
+
+*.wal
+*.snap
