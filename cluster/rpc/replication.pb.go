@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.2
-// source: cluster/rpc/replication.proto
+// source: replication.proto
 
 package rpc
 
@@ -26,13 +26,14 @@ type WALRecord struct {
 	Op            uint32                 `protobuf:"varint,1,opt,name=op,proto3" json:"op,omitempty"`
 	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	Value         []byte                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Metadata      map[string]string      `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WALRecord) Reset() {
 	*x = WALRecord{}
-	mi := &file_cluster_rpc_replication_proto_msgTypes[0]
+	mi := &file_replication_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +45,7 @@ func (x *WALRecord) String() string {
 func (*WALRecord) ProtoMessage() {}
 
 func (x *WALRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_cluster_rpc_replication_proto_msgTypes[0]
+	mi := &file_replication_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +58,7 @@ func (x *WALRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WALRecord.ProtoReflect.Descriptor instead.
 func (*WALRecord) Descriptor() ([]byte, []int) {
-	return file_cluster_rpc_replication_proto_rawDescGZIP(), []int{0}
+	return file_replication_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *WALRecord) GetOp() uint32 {
@@ -81,6 +82,13 @@ func (x *WALRecord) GetValue() []byte {
 	return nil
 }
 
+func (x *WALRecord) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 type ReplicateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Record        *WALRecord             `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
@@ -90,7 +98,7 @@ type ReplicateRequest struct {
 
 func (x *ReplicateRequest) Reset() {
 	*x = ReplicateRequest{}
-	mi := &file_cluster_rpc_replication_proto_msgTypes[1]
+	mi := &file_replication_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -102,7 +110,7 @@ func (x *ReplicateRequest) String() string {
 func (*ReplicateRequest) ProtoMessage() {}
 
 func (x *ReplicateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cluster_rpc_replication_proto_msgTypes[1]
+	mi := &file_replication_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -115,7 +123,7 @@ func (x *ReplicateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplicateRequest.ProtoReflect.Descriptor instead.
 func (*ReplicateRequest) Descriptor() ([]byte, []int) {
-	return file_cluster_rpc_replication_proto_rawDescGZIP(), []int{1}
+	return file_replication_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ReplicateRequest) GetRecord() *WALRecord {
@@ -134,7 +142,7 @@ type ReplicateResponse struct {
 
 func (x *ReplicateResponse) Reset() {
 	*x = ReplicateResponse{}
-	mi := &file_cluster_rpc_replication_proto_msgTypes[2]
+	mi := &file_replication_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -146,7 +154,7 @@ func (x *ReplicateResponse) String() string {
 func (*ReplicateResponse) ProtoMessage() {}
 
 func (x *ReplicateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cluster_rpc_replication_proto_msgTypes[2]
+	mi := &file_replication_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -159,7 +167,7 @@ func (x *ReplicateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplicateResponse.ProtoReflect.Descriptor instead.
 func (*ReplicateResponse) Descriptor() ([]byte, []int) {
-	return file_cluster_rpc_replication_proto_rawDescGZIP(), []int{2}
+	return file_replication_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ReplicateResponse) GetSuccess() bool {
@@ -177,7 +185,7 @@ type HeartbeatRequest struct {
 
 func (x *HeartbeatRequest) Reset() {
 	*x = HeartbeatRequest{}
-	mi := &file_cluster_rpc_replication_proto_msgTypes[3]
+	mi := &file_replication_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -189,7 +197,7 @@ func (x *HeartbeatRequest) String() string {
 func (*HeartbeatRequest) ProtoMessage() {}
 
 func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cluster_rpc_replication_proto_msgTypes[3]
+	mi := &file_replication_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -202,7 +210,7 @@ func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_cluster_rpc_replication_proto_rawDescGZIP(), []int{3}
+	return file_replication_proto_rawDescGZIP(), []int{3}
 }
 
 type HeartbeatResponse struct {
@@ -213,7 +221,7 @@ type HeartbeatResponse struct {
 
 func (x *HeartbeatResponse) Reset() {
 	*x = HeartbeatResponse{}
-	mi := &file_cluster_rpc_replication_proto_msgTypes[4]
+	mi := &file_replication_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -225,7 +233,7 @@ func (x *HeartbeatResponse) String() string {
 func (*HeartbeatResponse) ProtoMessage() {}
 
 func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cluster_rpc_replication_proto_msgTypes[4]
+	mi := &file_replication_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -238,18 +246,22 @@ func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_cluster_rpc_replication_proto_rawDescGZIP(), []int{4}
+	return file_replication_proto_rawDescGZIP(), []int{4}
 }
 
-var File_cluster_rpc_replication_proto protoreflect.FileDescriptor
+var File_replication_proto protoreflect.FileDescriptor
 
-const file_cluster_rpc_replication_proto_rawDesc = "" +
+const file_replication_proto_rawDesc = "" +
 	"\n" +
-	"\x1dcluster/rpc/replication.proto\x12\vreplication\"C\n" +
+	"\x11replication.proto\x12\vreplication\"\xc2\x01\n" +
 	"\tWALRecord\x12\x0e\n" +
 	"\x02op\x18\x01 \x01(\rR\x02op\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\fR\x05value\"B\n" +
+	"\x05value\x18\x03 \x01(\fR\x05value\x12@\n" +
+	"\bmetadata\x18\x04 \x03(\v2$.replication.WALRecord.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"B\n" +
 	"\x10ReplicateRequest\x12.\n" +
 	"\x06record\x18\x01 \x01(\v2\x16.replication.WALRecordR\x06record\"-\n" +
 	"\x11ReplicateResponse\x12\x18\n" +
@@ -261,58 +273,60 @@ const file_cluster_rpc_replication_proto_rawDesc = "" +
 	"\tHeartbeat\x12\x1d.replication.HeartbeatRequest\x1a\x1e.replication.HeartbeatResponseB\x11Z\x0fcluster/rpc;rpcb\x06proto3"
 
 var (
-	file_cluster_rpc_replication_proto_rawDescOnce sync.Once
-	file_cluster_rpc_replication_proto_rawDescData []byte
+	file_replication_proto_rawDescOnce sync.Once
+	file_replication_proto_rawDescData []byte
 )
 
-func file_cluster_rpc_replication_proto_rawDescGZIP() []byte {
-	file_cluster_rpc_replication_proto_rawDescOnce.Do(func() {
-		file_cluster_rpc_replication_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_cluster_rpc_replication_proto_rawDesc), len(file_cluster_rpc_replication_proto_rawDesc)))
+func file_replication_proto_rawDescGZIP() []byte {
+	file_replication_proto_rawDescOnce.Do(func() {
+		file_replication_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_replication_proto_rawDesc), len(file_replication_proto_rawDesc)))
 	})
-	return file_cluster_rpc_replication_proto_rawDescData
+	return file_replication_proto_rawDescData
 }
 
-var file_cluster_rpc_replication_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_cluster_rpc_replication_proto_goTypes = []any{
+var file_replication_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_replication_proto_goTypes = []any{
 	(*WALRecord)(nil),         // 0: replication.WALRecord
 	(*ReplicateRequest)(nil),  // 1: replication.ReplicateRequest
 	(*ReplicateResponse)(nil), // 2: replication.ReplicateResponse
 	(*HeartbeatRequest)(nil),  // 3: replication.HeartbeatRequest
 	(*HeartbeatResponse)(nil), // 4: replication.HeartbeatResponse
+	nil,                       // 5: replication.WALRecord.MetadataEntry
 }
-var file_cluster_rpc_replication_proto_depIdxs = []int32{
-	0, // 0: replication.ReplicateRequest.record:type_name -> replication.WALRecord
-	1, // 1: replication.ReplicationService.Replicate:input_type -> replication.ReplicateRequest
-	3, // 2: replication.ReplicationService.Heartbeat:input_type -> replication.HeartbeatRequest
-	2, // 3: replication.ReplicationService.Replicate:output_type -> replication.ReplicateResponse
-	4, // 4: replication.ReplicationService.Heartbeat:output_type -> replication.HeartbeatResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+var file_replication_proto_depIdxs = []int32{
+	5, // 0: replication.WALRecord.metadata:type_name -> replication.WALRecord.MetadataEntry
+	0, // 1: replication.ReplicateRequest.record:type_name -> replication.WALRecord
+	1, // 2: replication.ReplicationService.Replicate:input_type -> replication.ReplicateRequest
+	3, // 3: replication.ReplicationService.Heartbeat:input_type -> replication.HeartbeatRequest
+	2, // 4: replication.ReplicationService.Replicate:output_type -> replication.ReplicateResponse
+	4, // 5: replication.ReplicationService.Heartbeat:output_type -> replication.HeartbeatResponse
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_cluster_rpc_replication_proto_init() }
-func file_cluster_rpc_replication_proto_init() {
-	if File_cluster_rpc_replication_proto != nil {
+func init() { file_replication_proto_init() }
+func file_replication_proto_init() {
+	if File_replication_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cluster_rpc_replication_proto_rawDesc), len(file_cluster_rpc_replication_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_replication_proto_rawDesc), len(file_replication_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_cluster_rpc_replication_proto_goTypes,
-		DependencyIndexes: file_cluster_rpc_replication_proto_depIdxs,
-		MessageInfos:      file_cluster_rpc_replication_proto_msgTypes,
+		GoTypes:           file_replication_proto_goTypes,
+		DependencyIndexes: file_replication_proto_depIdxs,
+		MessageInfos:      file_replication_proto_msgTypes,
 	}.Build()
-	File_cluster_rpc_replication_proto = out.File
-	file_cluster_rpc_replication_proto_goTypes = nil
-	file_cluster_rpc_replication_proto_depIdxs = nil
+	File_replication_proto = out.File
+	file_replication_proto_goTypes = nil
+	file_replication_proto_depIdxs = nil
 }

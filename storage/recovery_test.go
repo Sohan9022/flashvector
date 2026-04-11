@@ -11,7 +11,7 @@ import (
 // --- HELPER FUNCTION ---
 // FIX: Use 8 bytes to match your IVFIndex dimension
 func mockDataRecovery(content string) []byte {
-	out := make([]byte, 384) // <--- CHANGED FROM 64 TO 8
+	out := make([]byte, 1536) // <--- CHANGED FROM 64 TO 8
 	copy(out, []byte(content))
 	return out
 }
@@ -38,10 +38,10 @@ func TestCrashRecovery(t *testing.T) {
 	valA := mockDataRecovery("valA")
 	valB := mockDataRecovery("valB")
 
-	if err := store.Set("a", valA); err != nil {
+	if err := store.Set("a", valA,nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Set("b", valB); err != nil {
+	if err := store.Set("b", valB,nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -61,7 +61,7 @@ func TestCrashRecovery(t *testing.T) {
 	}
 
 	// 4. Verify
-	val, ok := store1.Get("a")
+	val, _,ok := store1.Get("a")
 	if !ok {
 		t.Fatalf("key a not recovered correctly")
 	}
@@ -73,7 +73,7 @@ func TestCrashRecovery(t *testing.T) {
 	queryVec := make([]float32, 384) // <--- CHANGED TO 8 DIMENSIONS
 	copy(queryVec, bytesToVector(valA))
 
-	results := store1.VectorSearch(queryVec, 1)
+	results := store1.VectorSearch(queryVec, 1,nil)
 	if len(results) != 1 || results[0].ID != "a" {
 		t.Fatalf("vector index not rebuilt correctly")
 	}
@@ -95,8 +95,8 @@ func TestCorruptedWALRecovery(t *testing.T) {
 	val1 := mockDataRecovery("val1")
 	val2 := mockDataRecovery("val2")
 
-	store.Set("key1", val1)
-	store.Set("key2", val2)
+	store.Set("key1", val1,nil)
+	store.Set("key2", val2,nil)
 	w.Close()
 
 	// 2. CORRUPT THE FILE
@@ -120,12 +120,12 @@ func TestCorruptedWALRecovery(t *testing.T) {
 		t.Fatal("Store failed to start with corrupted WAL")
 	}
 
-	if val, ok := store2.Get("key1"); !ok || !bytes.Equal(val, val1) {
+	if val,_, ok := store2.Get("key1"); !ok || !bytes.Equal(val, val1) {
 		t.Error("key1 lost or corrupted")
 	}
 
 	// 4. Verify we can continue writing
-	if err := store2.Set("key3", mockDataRecovery("val3")); err != nil {
+	if err := store2.Set("key3", mockDataRecovery("val3"),nil); err != nil {
 		t.Fatalf("failed to write after recovery: %v", err)
 	}
 }
@@ -143,13 +143,13 @@ func TestInterleavedOperations(t *testing.T) {
 	}
 	store, _ := NewStore(ctx, w)
 
-	store.Set("a", mockDataRecovery("1"))
-	store.Set("b", mockDataRecovery("2"))
+	store.Set("a", mockDataRecovery("1"),nil)
+	store.Set("b", mockDataRecovery("2"),nil)
 	store.Delete("a")
-	store.Set("c", mockDataRecovery("3"))
-	store.Set("b", mockDataRecovery("4")) // Update
+	store.Set("c", mockDataRecovery("3"),nil)
+	store.Set("b", mockDataRecovery("4"),nil) // Update
 	store.Delete("c")
-	store.Set("c", mockDataRecovery("5")) // Re-create
+	store.Set("c", mockDataRecovery("5"),nil) // Re-create
 	w.Close()
 
 	// 2. Recover
@@ -161,16 +161,16 @@ func TestInterleavedOperations(t *testing.T) {
 	store2, _ := NewStore(ctx, w2)
 
 	// 3. Verify State
-	if _, ok := store2.Get("a"); ok {
+	if _,_, ok := store2.Get("a"); ok {
 		t.Error("key 'a' should be deleted, but was found")
 	}
 
-	valB, ok := store2.Get("b")
+	valB,_, ok := store2.Get("b")
 	if !ok || !bytes.Equal(valB, mockDataRecovery("4")) {
 		t.Errorf("key 'b' should be '4'")
 	}
 
-	valC, ok := store2.Get("c")
+	valC,_, ok := store2.Get("c")
 	if !ok || !bytes.Equal(valC, mockDataRecovery("5")) {
 		t.Errorf("key 'c' should be '5'")
 	}

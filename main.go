@@ -2,64 +2,59 @@ package main
 
 import (
 	"context"
-	shutdown "flashvector/internal"
-	"flashvector/storage"
-	"flashvector/wal"
 	"fmt"
 	"log"
+
+	shutdown "flashvector/internal"
+	"flashvector/server" // <-- ADDED: Import the new server package
+	"flashvector/storage"
+	"flashvector/wal"
 )
 
 func main() {
-	// open or create wal file
+	fmt.Println("⚡ Booting up FlashVector Engine...")
 
+	// 1. Setup Graceful Shutdown Context
 	rootCtx := context.Background()
 	ctx := shutdown.WithSignals(rootCtx)
 
-	w,err := wal.Open("data.wal")
-	if err != nil{
-		log.Fatal(err)
-	}
-	defer w.Close()
-	
-	// create a new store
-	store,err := storage.NewStore(ctx,w)
+	// 2. Open or Create WAL file
+	w, err := wal.Open("data.wal")
 	if err != nil {
-    log.Fatal(err) // Crash if we can't load data
-}
+		log.Fatalf("Failed to open WAL: %v", err)
+	}
+	// Note: We don't defer w.Close() here anymore because store.Close() will handle it!
 
-	// store a value
-	if err := store.Set("greeting",[]byte("Hello,World!"));err!=nil{
-		 log.Fatal(err)
+	// 3. Create a new Store (This automatically replays the WAL!)
+	store, err := storage.NewStore(ctx, w)
+	if err != nil {
+		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
-	// retrieve the value
-	value,ok := store.Get("greeting")
-	if ok{
-		fmt.Println(string(value))
-	}
-	
+	// --- WE DELETED THE "greeting" TEST CODE HERE ---
 
-	if err := store.Delete("greeting");err!=nil{
-		log.Fatal(err)
-	}
-	
+	// 4. Initialize the API Server
+	api := server.NewAPI(store)
 
-	_,ok = store.Get("greeting")
-	fmt.Println("Key exists after deletion:", ok)	
+	// 5. Start the Web Server in a background Goroutine (so it doesn't block Ctrl+C)
+	port := "8080"
+	go func() {
+		fmt.Printf("🚀 FlashVector REST API is live on http://localhost:%s\n", port)
+		if err := api.Start(port); err != nil {
+			log.Fatalf("Server crashed: %v", err)
+		}
+	}()
 
-	// --- STEP 15: ORCHESTRATION ---
-	// Wait here until we get a shutdown signal (Ctrl+C)
-	fmt.Println("Server started. Press Ctrl+C to stop.")
+	// 6. Wait here until we get a shutdown signal (Ctrl+C)
+	fmt.Println("Press Ctrl+C to safely shut down the database.")
 	<-ctx.Done()
-	fmt.Println("\nShutdown signal received. Stopping...")
 
-	// Cleanup logic
-	// If you have a node, close it here: node.Stop() / node.Close()
+	fmt.Println("\nShutdown signal received. Saving data and stopping...")
+
+	// 7. Cleanup logic
 	if err := store.Close(); err != nil {
 		fmt.Printf("Error closing store: %v\n", err)
 	}
-	
-	fmt.Println("Shutdown complete.")
 
+	fmt.Println("Shutdown complete. All data secured in WAL.")
 }
-

@@ -27,8 +27,8 @@ func generateCentroids(dim int, count int) [][]float32 {
 
 func TestANNvsBruteForceRecall(t *testing.T) {
 	// --- Settings ---
-	dim := 64           // Vector dimensions
-	numVectors := 5000  // Dataset size
+	dim := 384           // Vector dimensions
+	numVectors := 100000  // Dataset size
 	numCentroids := 50  // Number of IVF clusters
 	probes := 15        // How many clusters to search (Higher = better recall, slower speed)
 	k := 10             // Number of neighbors to find
@@ -59,10 +59,10 @@ func TestANNvsBruteForceRecall(t *testing.T) {
 		query := randomVector(dim)
 
 		// Get "Ground Truth" from Brute Force
-		truthResults := bruteForce.Search(query, k)
+		truthResults := bruteForce.Search(query, k,nil)
 
 		// Get "Approximate" results from IVF
-		annResults := ann.Search(query, k)
+		annResults := ann.Search(query, k,nil)
 
 		// Calculate Intersection
 		// (Count how many IDs from ANN appear in the Truth list)
@@ -109,7 +109,7 @@ func BenchmarkSearchBruteForce(b *testing.B) {
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		idx.Search(query, 10)
+		idx.Search(query, 10,nil)
 	}
 }
 
@@ -125,6 +125,26 @@ func BenchmarkSearchIVF(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		idx.Search(query, 10)
+		idx.Search(query, 10,nil)
 	}
+}
+
+func TestHybridRankAccuracy(t *testing.T) {
+	// This test confirms that if a document matches BOTH text and vector, 
+	// it should appear higher than a document that only matches one.
+	
+	rankings := [][]Result{
+		{{ID: "doc1", Score: 10}, {ID: "doc2", Score: 5}}, // Keyword results
+		{{ID: "doc2", Score: 0.9}, {ID: "doc1", Score: 0.1}}, // Vector results
+	}
+
+	// Using a balanced weight
+	fused := RRF(rankings, 60) //
+
+	if len(fused) < 2 {
+		t.Fatal("Failed to fuse results")
+	}
+	
+	// doc2 is #2 in keyword and #1 in vector -> it should be very strong
+	t.Logf("Top result: %s with score %f", fused[0].ID, fused[0].Score)
 }

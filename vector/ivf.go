@@ -1,15 +1,21 @@
 package vector
 
-import "sort"
+import (
+	"sort"
+	"sync"
+)
 
 type IVFIndex struct{
 	centroids [][]float32
 	lists map[int][]QuantizedVector
 	probes int
 	dim int
+	mu  sync.RWMutex // Added Mutex for thread safety
 }
 
 func (ivf *IVFIndex) Add(id string,vec []float32){
+	ivf.mu.Lock()
+	defer ivf.mu.Unlock()
 	// validate dim
 	if len(vec) != ivf.dim{
 		panic("vector dimension mismatch")
@@ -36,7 +42,9 @@ func (ivf *IVFIndex) Add(id string,vec []float32){
 
 
 
-func (ivf *IVFIndex) Search(query []float32,k int)[]Result{
+func (ivf *IVFIndex) Search(query []float32,k int,filter func(id string) bool)[]Result{
+	ivf.mu.RLock()
+	defer ivf.mu.RUnlock()
 	// validate dim
 	if len(query) != ivf.dim{
 		panic("vec dim mismatch")
@@ -79,6 +87,12 @@ func (ivf *IVFIndex) Search(query []float32,k int)[]Result{
 			vectors := ivf.lists[centroidId]
 
 			for _,v := range vectors{
+
+				if filter != nil {
+				if allowed := filter(v.id); !allowed {
+					continue // Skip if metadata doesn't match
+				}
+			}
 
 				vec := Dequantize(v)
 
@@ -154,6 +168,8 @@ func NewIVFIndex(centroids [][]float32,probes int) *IVFIndex{
 }
 
 func (ivf *IVFIndex) Remove(id string){
+	ivf.mu.Lock()
+	defer ivf.mu.Unlock()
 	for centroidId,vectors := range ivf.lists{
 		newVectors := make([]QuantizedVector,0,len(vectors))
 
@@ -168,6 +184,8 @@ func (ivf *IVFIndex) Remove(id string){
 
 // RebuildFromData clears the index and repopulates it from the snapshot data
 func (ivf *IVFIndex) RebuildFromData(data map[string][]byte) {
+	ivf.mu.Lock()
+	defer ivf.mu.Unlock()
 	// 1. Clear existing inverted lists
 	for i := range ivf.lists {
 		ivf.lists[i] = make([]QuantizedVector, 0)
@@ -177,6 +195,12 @@ func (ivf *IVFIndex) RebuildFromData(data map[string][]byte) {
 	for id, bytes := range data {
 		// bytesToVector is visible here because it's in the same 'vector' package (in index.go)
 		vec := bytesToVector(bytes)
+		// We can call Add internally, but need to be careful about deadlock.
+		// Since we already hold the lock, we should extract the logic or unlock temporarily.
+		// For simplicity/safety in this helper, let's duplicate the logic slightly 
+		// or just unlock/lock. Here we unlock to call public Add.
+		ivf.mu.Unlock()
 		ivf.Add(id, vec)
+		ivf.mu.Lock()
 	}
 }

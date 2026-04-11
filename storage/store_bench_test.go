@@ -1,3 +1,5 @@
+
+
 package storage
 
 import (
@@ -9,7 +11,7 @@ import (
 // --- HELPER FUNCTION ---
 // Creates 8-byte data to match NewStore(64, 8)
 func mockDataBench(content string) []byte {
-	out := make([]byte, 384) // <--- MUST BE 8
+	out := make([]byte, 1536) // <--- MUST BE 8
 	copy(out, []byte(content))
 	return out
 }
@@ -25,7 +27,7 @@ func BenchmarkStoreSet(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		key := "key-" + strconv.Itoa(i)
-		store.Set(key, data) // <--- Now sends 8 bytes, not 5
+		store.Set(key, data,nil) // <--- Now sends 8 bytes, not 5
 	}
 }
 
@@ -36,7 +38,7 @@ func BenchmarkStoreGet(b *testing.B) {
 
 	// Pre-populate 1000 items
 	for i := 0; i < 1000; i++ {
-		store.Set("key-"+strconv.Itoa(i), data)
+		store.Set("key-"+strconv.Itoa(i), data,nil)
 	}
 
 	b.ResetTimer()
@@ -55,7 +57,7 @@ func BenchmarkStoreDelete(b *testing.B) {
 	// Stop timer so setup doesn't ruin the benchmark result
 	b.StopTimer()
 	for i := 0; i < b.N; i++ {
-		store.Set("key-"+strconv.Itoa(i), data)
+		store.Set("key-"+strconv.Itoa(i), data,nil)
 	}
 	b.StartTimer()
 

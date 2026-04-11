@@ -8,7 +8,7 @@ import (
 
 // Helper to create 8-byte vectors (Matches your NewStore configuration)
 func mockDataTest(content string) []byte {
-	out := make([]byte, 384)
+	out := make([]byte, 1536)
 	copy(out, []byte(content))
 	return out
 }
@@ -20,11 +20,11 @@ func TestSetAndGet(t *testing.T) {
 	// FIX: Use mockDataTest instead of raw strings
 	val := mockDataTest("val1")
 	
-	if err := store.Set("key1", val); err != nil {
+	if err := store.Set("key1", val,nil); err != nil {
 		t.Fatal(err)
 	}
 
-	retrieved, ok := store.Get("key1")
+	retrieved,_,ok := store.Get("key1")
 
 	if !ok {
 		t.Fatalf("expected key to exist")
@@ -39,13 +39,13 @@ func TestDelete(t *testing.T) {
 	store, _ := NewStore(ctx, nil)
 
 	// FIX: Use mockDataTest
-	if err := store.Set("key2", mockDataTest("val2")); err != nil {
+	if err := store.Set("key2", mockDataTest("val2"),nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Delete("key2"); err != nil {
 		t.Fatal(err)
 	}
-	_, ok := store.Get("key2")
+	_,_, ok := store.Get("key2")
 
 	if ok {
 		t.Fatalf("expected key to be deleted")
@@ -62,7 +62,7 @@ func TestConcurrentAccess(t *testing.T) {
 		go func(i int) {
 			key := "key"
 			// FIX: Use mockDataTest
-			if err := store.Set(key, mockDataTest("val")); err != nil {
+			if err := store.Set(key, mockDataTest("val"),nil); err != nil {
 				t.Error(err)
 			}
 

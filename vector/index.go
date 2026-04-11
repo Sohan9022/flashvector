@@ -6,7 +6,7 @@ import "sort"
 type VectorIndex interface{
 	Add(id string,vec []float32)
 	Remove(id string)
-	Search(query []float32,k int) []Result
+	Search(query []float32,k int,filter func(id string) bool) []Result
 	RebuildFromData(data map[string][]byte)
 }
 
@@ -38,10 +38,16 @@ func (idx *Index) Add(ID string,value []float32){
 	})
 }
 
-func (idx *Index) Search(query []float32,k int)[]Result{
+func (idx *Index) Search(query []float32,k int,filter func(id string) bool)[]Result{
 	results := make([]Result,0)
 
 	for _,v := range idx.vectors{
+
+		if filter != nil {
+			if allowed := filter(v.ID); !allowed {
+				continue // Skip this vector, don't calculate score
+			}
+		}
 
 		Score := CosineSimilarity(query,v.values)
 

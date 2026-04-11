@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"net"
+	"google.golang.org/grpc"
 )
 
 type Node struct{
@@ -51,16 +53,16 @@ func (n *Node) IsLeader() bool{
 	return n.Config.IsLeader()
 }
 
-func (n *Node) Set(key string,value []byte) error{
+func (n *Node) Set(key string,value []byte,metadata map[string]string) error{
 	if !n.IsLeader(){
-		return errors.New("Not leader")
+		return errors.New("not leader")
 	}
 // write to local wal
-	if err := n.WAL.LogSet(key,value);err != nil{
+	if err := n.WAL.LogSet(key,value,metadata);err != nil{
 		return err
 	}
 // apply localy
-	if err := n.Store.Set(key,value);err != nil{
+	if err := n.Store.Set(key,value,metadata);err != nil{
 		return err
 	}
 
@@ -69,6 +71,7 @@ func (n *Node) Set(key string,value []byte) error{
 		Op : 1,
 		Key : key,
 		Value : value,
+		Metadata : metadata,
 	}
 
 	for id,clients := range n.Clients{
@@ -90,7 +93,7 @@ func (n *Node) Set(key string,value []byte) error{
 
 func (n *Node) Delete(key string)error{
 	if !n.IsLeader(){
-		return fmt.Errorf("Not leader")
+		return fmt.Errorf("not leader")
 	}
 
 	if err := n.WAL.LogDelete(key);err != nil{
@@ -120,7 +123,7 @@ func (n *Node) Delete(key string)error{
 
 // ApplySet delegates the apply operation to the underlying store
 func (n *Node) ApplySet(key string, value []byte) {
-	n.Store.ApplySet(key, value)
+	n.Store.ApplySet(key, value,nil)
 }
 
 // ApplyDelete delegates the apply operation to the underlying store
@@ -134,7 +137,7 @@ func (n *Node) startHeartbeat(){
 	}
 
 	ticker := time.NewTicker(HeartBeatInterval)
-
+// NO 'go func()' here! Just the loop.
 	go func(){
 		for{
 			select{
@@ -181,17 +184,51 @@ func (n *Node) Start(){
 	}
 }
 
-func (n *Node) Stop(){
-	close(n.stopCh)
+func (n *Node) Stop() {
+	// Defensively check if the channel was initialized
+	if n.stopCh != nil {
+		// A select with a default prevents panicking if Stop() is called twice
+		select {
+		case <-n.stopCh:
+			// already closed
+		default:
+			close(n.stopCh)
+		}
+	}
 	n.wg.Wait()
 }
 
 func (n *Node) Get(key string)([]byte,bool,error){
 	if !n.IsLeader(){
-		return nil,false,errors.New("not leader")
+		return nil,false,errors.New("Not leader")
 	}
 
-	val,ok := n.Store.Get(key)
+	val,_,ok := n.Store.Get(key)
 
 	return val,ok,nil
+}
+
+// StartGRPCServer opens a port and listens for replication commands from the Leader
+func (n *Node) StartGRPCServer() error {
+	// Parse the port from the node's address (e.g., "localhost:8081" -> ":8081")
+	lis, err := net.Listen("tcp", n.Config.Self.Address)
+	if err != nil {
+		return err
+	}
+
+	// Create a new gRPC server
+	grpcServer := grpc.NewServer()
+
+	// Register our replication service, passing the Node as the handler
+	rpc.RegisterReplicationServiceServer(grpcServer, &rpc.ReplicationServer{Node: n})
+
+	// Run the server in a background goroutine so it doesn't block
+	go func() {
+		fmt.Printf("🛡️ Node %s listening for cluster replication on %s\n", n.Config.Self.ID, n.Config.Self.Address)
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Printf("gRPC server failed: %v\n", err)
+		}
+	}()
+
+	return nil
 }
