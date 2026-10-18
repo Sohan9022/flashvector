@@ -10,12 +10,14 @@ Thumbs.db
 
 # Runtime data
 data/
-wal/
 *.log
+*.wal
+*.snap
 
 # IDE
 .vscode/
 .idea/
 
-*.wal
-*.snap
+# Resume builder & assets
+*resume*
+build_resume_pdf.py

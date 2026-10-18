@@ -2,56 +2,81 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 
+	"flashvector/cluster"
 	shutdown "flashvector/internal"
-	"flashvector/server" // <-- ADDED: Import the new server package
+	"flashvector/server"
 	"flashvector/storage"
 	"flashvector/wal"
 )
 
 func main() {
-	fmt.Println("⚡ Booting up FlashVector Engine...")
+	// Parse CLI flags
+	port := flag.String("port", "8080", "HTTP REST API listen port")
+	role := flag.String("role", "standalone", "Node role: standalone | leader | follower")
+	nodeID := flag.String("node-id", "node-1", "Unique node ID")
+	clusterAddr := flag.String("cluster-addr", "localhost:8081", "gRPC cluster replication listen address")
+	leaderID := flag.String("leader-id", "node-1", "Cluster leader ID")
+	walPath := flag.String("wal", "data.wal", "Path to WAL file")
+	flag.Parse()
+
+	fmt.Printf("⚡ Booting up FlashVector Engine (Role: %s, Node: %s)...\n", *role, *nodeID)
 
 	// 1. Setup Graceful Shutdown Context
 	rootCtx := context.Background()
 	ctx := shutdown.WithSignals(rootCtx)
 
 	// 2. Open or Create WAL file
-	w, err := wal.Open("data.wal")
+	w, err := wal.Open(*walPath)
 	if err != nil {
 		log.Fatalf("Failed to open WAL: %v", err)
 	}
-	// Note: We don't defer w.Close() here anymore because store.Close() will handle it!
 
-	// 3. Create a new Store (This automatically replays the WAL!)
+	// 3. Create a new Store (automatically replays the WAL & snapshot)
 	store, err := storage.NewStore(ctx, w)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
-	// --- WE DELETED THE "greeting" TEST CODE HERE ---
+	// 4. Initialize Cluster Node if role is leader or follower
+	var node *cluster.Node
+	if *role == "leader" || *role == "follower" {
+		cfg := &cluster.ClusterConfig{
+			Self:     cluster.NodeConfig{ID: *nodeID, Address: *clusterAddr},
+			LeaderId: *leaderID,
+		}
+		node, err = cluster.NewNode(cfg, store, w)
+		if err != nil {
+			log.Fatalf("Failed to initialize cluster node: %v", err)
+		}
+		if err := node.StartGRPCServer(); err != nil {
+			log.Printf("⚠️ Warning: Failed to start gRPC cluster server: %v", err)
+		}
+		node.Start()
+	}
 
-	// 4. Initialize the API Server
+	// 5. Initialize the REST API Server
 	api := server.NewAPI(store)
 
-	// 5. Start the Web Server in a background Goroutine (so it doesn't block Ctrl+C)
-	port := "8080"
 	go func() {
-		fmt.Printf("🚀 FlashVector REST API is live on http://localhost:%s\n", port)
-		if err := api.Start(port); err != nil {
+		fmt.Printf("🚀 FlashVector REST API is live on http://localhost:%s\n", *port)
+		if err := api.Start(*port); err != nil {
 			log.Fatalf("Server crashed: %v", err)
 		}
 	}()
 
-	// 6. Wait here until we get a shutdown signal (Ctrl+C)
 	fmt.Println("Press Ctrl+C to safely shut down the database.")
 	<-ctx.Done()
 
 	fmt.Println("\nShutdown signal received. Saving data and stopping...")
 
-	// 7. Cleanup logic
+	if node != nil {
+		node.Stop()
+	}
+
 	if err := store.Close(); err != nil {
 		fmt.Printf("Error closing store: %v\n", err)
 	}

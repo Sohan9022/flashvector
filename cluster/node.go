@@ -121,14 +121,14 @@ func (n *Node) Delete(key string)error{
 
 // --- Implementation of rpc.ReplicaHandler Interface ---
 
-// ApplySet delegates the apply operation to the underlying store
+// ApplySet delegates the apply operation to the underlying store with write lock
 func (n *Node) ApplySet(key string, value []byte) {
-	n.Store.ApplySet(key, value,nil)
+	n.Store.ApplySetWithLock(key, value, nil)
 }
 
-// ApplyDelete delegates the apply operation to the underlying store
+// ApplyDelete delegates the apply operation to the underlying store with write lock
 func (n *Node) ApplyDelete(key string) {
-	n.Store.ApplyDelete(key)
+	n.Store.ApplyDeleteWithLock(key)
 }
 
 func (n *Node) startHeartbeat(){

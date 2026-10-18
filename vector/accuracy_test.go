@@ -30,7 +30,7 @@ func TestANNvsBruteForceRecall(t *testing.T) {
 	dim := 384           // Vector dimensions
 	numVectors := 100000  // Dataset size
 	numCentroids := 50  // Number of IVF clusters
-	probes := 15        // How many clusters to search (Higher = better recall, slower speed)
+	probes := 25        // How many clusters to search (Higher = better recall, slower speed)
 	k := 10             // Number of neighbors to find
 	numQueries := 100   // Number of test queries to run
 

@@ -2,24 +2,24 @@ package storage
 
 import (
 	"context"
+	"encoding/binary"
 	"flashvector/metrics"
 	"flashvector/vector"
 	"flashvector/wal"
 	"fmt"
-	"sync"
-	"encoding/binary"
 	"math"
+	"sync"
 )
 
 // Metadata is a simple key-value map for storing tags (e.g., "category": "news")
 type Metadata map[string]string
 
-// Store holds data and protects it with a lock
-// Store holds the data, metadata, and the vector index
+// Store holds the data, metadata, inverted keyword index, and the vector index
 type Store struct {
 	mu            sync.RWMutex
 	data          map[string][]byte
 	meta          map[string]Metadata
+	inverted      map[string][]string // Lexical Inverted Index: token -> list of doc IDs
 	wal           *wal.WAL
 	index         vector.VectorIndex
 	Metrics       *metrics.Metrics
@@ -30,17 +30,18 @@ type Store struct {
 
 // NewStore creates and returns a pointer to a new store
 func NewStore(ctx context.Context, w *wal.WAL) (*Store, error) {
-	// Use 384 dimensions for Real World compatibility (e.g. all-MiniLM-L6-v2)
-	centroids := vector.RandomCentroids(2, 384)
-	index := vector.NewIVFIndex(centroids, 3)
+	// 4 Voronoi clusters with deterministic centroids
+	centroids := vector.DeterministicCentroids(4, 384, 42)
+	index := vector.NewIVFIndex(centroids, 4)
 
 	s := &Store{
 		data:          make(map[string][]byte),
-		meta:          make(map[string]Metadata), // <--- Initialize metadata map
+		meta:          make(map[string]Metadata),
+		inverted:      make(map[string][]string),
 		wal:           w,
 		index:         index,
 		opCount:       0,
-		snapshotEvery: 1000, // Set to 1000 for real use (10 was for testing)
+		snapshotEvery: 1000,
 		ctx:           ctx,
 	}
 
@@ -60,7 +61,7 @@ func NewStore(ctx context.Context, w *wal.WAL) (*Store, error) {
 }
 
 // Set stores a value for a given key
-func (s *Store) Set(key string, value []byte,metadata Metadata) error {
+func (s *Store) Set(key string, value []byte, metadata Metadata) error {
 	// 1. Check for shutdown
 	select {
 	case <-s.ctx.Done():
@@ -70,22 +71,20 @@ func (s *Store) Set(key string, value []byte,metadata Metadata) error {
 
 	// 2. Write to WAL first
 	if s.wal != nil {
-		if err := s.wal.LogSet(key, value,metadata); err != nil {
+		if err := s.wal.LogSet(key, value, metadata); err != nil {
 			return err
 		}
 	}
 
-	// 3. LOCK HERE (The only lock)
+	// 3. LOCK HERE
 	s.mu.Lock()
-	// NOTE: We DO NOT defer Unlock() here because we might unlock early for snapshots
 
-	// 4. Update Memory (Calls internal function)
-	s.ApplySet(key, value,metadata)
+	// 4. Update Memory
+	s.ApplySet(key, value, metadata)
 
 	// 5. Snapshot Trigger
 	s.opCount++
 	if s.wal != nil && s.opCount%s.snapshotEvery == 0 {
-		// UNLOCK BEFORE SNAPSHOT to avoid deadlock
 		s.mu.Unlock()
 
 		if err := s.SaveSnapShot("data.snap"); err != nil {
@@ -96,7 +95,6 @@ func (s *Store) Set(key string, value []byte,metadata Metadata) error {
 			}
 		}
 	} else {
-		// Normal unlock
 		s.mu.Unlock()
 	}
 
@@ -108,10 +106,10 @@ func (s *Store) Set(key string, value []byte,metadata Metadata) error {
 }
 
 // Get retrieves a value for a given key
-func (s *Store) Get(key string) ([]byte,Metadata,bool) {
+func (s *Store) Get(key string) ([]byte, Metadata, bool) {
 	select {
 	case <-s.ctx.Done():
-		return nil,nil, false
+		return nil, nil, false
 	default:
 	}
 
@@ -119,13 +117,13 @@ func (s *Store) Get(key string) ([]byte,Metadata,bool) {
 	defer s.mu.RUnlock()
 
 	val, ok := s.data[key]
-	meta := s.meta[key] // Retrieve metadata from the new map
+	meta := s.meta[key]
 
 	if ok && s.Metrics != nil {
 		s.Metrics.IncReads()
 	}
 
-	return val,meta,ok
+	return val, meta, ok
 }
 
 // Delete removes a value for a given key
@@ -143,8 +141,6 @@ func (s *Store) Delete(key string) error {
 	}
 
 	s.mu.Lock()
-	// No defer here either
-
 	s.ApplyDelete(key)
 
 	s.opCount++
@@ -168,72 +164,101 @@ func (s *Store) Delete(key string) error {
 	return nil
 }
 
-// changed from here down
 func bytesToVector(b []byte) []float32 {
-	// A float32 takes 4 bytes. So if we have 12 bytes, we have 3 floats.
 	numFloats := len(b) / 4
 	vec := make([]float32, numFloats)
-	
+
 	for i := 0; i < numFloats; i++ {
-		// Read 4 bytes at a time
 		bits := binary.LittleEndian.Uint32(b[i*4 : (i+1)*4])
-		// Convert those bits back into a decimal number
 		vec[i] = math.Float32frombits(bits)
 	}
 	return vec
 }
 
-func (s *Store) VectorSearch(query []float32, k int,filterMap map[string]string) []vector.Result {
+func (s *Store) VectorSearch(query []float32, k int, filterMap map[string]string) []vector.Result {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	// Define the Bouncer Function
 	predicate := func(id string) bool {
-		// If no filter is requested, everyone is allowed
 		if len(filterMap) == 0 {
 			return true
 		}
 
-		// Get the metadata for this candidate ID
 		meta, exists := s.meta[id]
 		if !exists {
-			return false // No metadata? Blocked.
+			return false
 		}
 
-		// Check if it matches ALL criteria
 		for key, requiredValue := range filterMap {
 			if meta[key] != requiredValue {
-				return false // Mismatch? Blocked.
+				return false
 			}
 		}
-		return true // Allowed!
+		return true
 	}
 
-	return s.index.Search(query, k,predicate)
+	return s.index.Search(query, k, predicate)
 }
 
+// --- INTERNAL FUNCTIONS (Caller MUST hold lock, or use WithLock variants) ---
 
-
-// --- INTERNAL FUNCTIONS (NO LOCKS) ---
-// These are called by Set/Delete which ALREADY hold the lock.
-
-func (s *Store) ApplySet(key string, value []byte,metadata map[string]string) {
-	// REMOVED LOCK
+func (s *Store) ApplySet(key string, value []byte, metadata map[string]string) {
 	s.data[key] = value
-	s.meta[key] = Metadata(metadata) // <--- Store the metadata in RAM
+	s.meta[key] = Metadata(metadata)
 	s.index.Remove(key)
 	vec := bytesToVector(value)
 	if vec != nil {
 		s.index.Add(key, vec)
 	}
+
+	// Update Lexical Inverted Index
+	// Index text if provided in metadata, or fallback to value if it's plaintext
+	var textToIndex string
+	if metadata != nil && metadata["text"] != "" {
+		textToIndex = metadata["text"]
+	}
+
+	if textToIndex != "" {
+		tokens := tokenize(textToIndex)
+		for _, token := range tokens {
+			s.inverted[token] = append(s.inverted[token], key)
+		}
+	}
 }
 
 func (s *Store) ApplyDelete(key string) {
-	// REMOVED LOCK
 	delete(s.data, key)
-	delete(s.meta, key) // <--- Remove metadata from RAM
+	delete(s.meta, key)
 	s.index.Remove(key)
-	// REMOVED UNLOCK
+
+	// Remove document key from inverted index postings
+	for token, docList := range s.inverted {
+		filtered := make([]string, 0, len(docList))
+		for _, docID := range docList {
+			if docID != key {
+				filtered = append(filtered, docID)
+			}
+		}
+		if len(filtered) > 0 {
+			s.inverted[token] = filtered
+		} else {
+			delete(s.inverted, token)
+		}
+	}
+}
+
+// Thread-safe wrapper for replication handlers
+func (s *Store) ApplySetWithLock(key string, value []byte, metadata map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ApplySet(key, value, metadata)
+}
+
+// Thread-safe wrapper for replication handlers
+func (s *Store) ApplyDeleteWithLock(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ApplyDelete(key)
 }
 
 func (s *Store) Close() error {
@@ -245,4 +270,3 @@ func (s *Store) Close() error {
 	}
 	return nil
 }
-
